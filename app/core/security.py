@@ -5,7 +5,9 @@ from jwt import InvalidTokenError
 from pwdlib import PasswordHash
 
 from app.core.config import settings
-
+import hashlib
+import uuid
+from datetime import datetime, timedelta, timezone
 
 password_hash = PasswordHash.recommended()
 
@@ -57,3 +59,31 @@ def decode_access_token(token: str) -> dict:
         raise InvalidTokenError("Invalid token type")
 
     return payload
+
+
+
+def create_refresh_token(
+    user_id: str,
+) -> tuple[str, datetime]:
+    expire = datetime.now(timezone.utc) + timedelta(
+        days=settings.refresh_token_expire_days
+    )
+
+    payload = {
+        "sub": user_id,
+        "type": "refresh",
+        "jti": str(uuid.uuid4()),
+        "exp": expire,
+    }
+
+    token = jwt.encode(
+        payload,
+        settings.jwt_secret,
+        algorithm=settings.jwt_algorithm,
+    )
+
+    return token, expire
+
+
+def hash_refresh_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()

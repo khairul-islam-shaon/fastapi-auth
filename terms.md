@@ -200,40 +200,40 @@ PostgreSQL
 ↓
 UserResponse
 
-
 **JWT** কী?
 JWT = JSON Web Token।
 Login successful হলে server একটা signed token দেবে:
 email + password
-      ↓
+↓
 verify user
-      ↓
+↓
 JWT access token
-      ↓
+↓
 client stores token
-      ↓
+↓
 Authorization: Bearer <token>
 
 এর মাধ্যমে প্রতিবার password পাঠাতে হয় না।
 PyJWT কেন?
 PyJWT Python library যা JWT:
+
 - create/sign করে
 - decode করে
 - signature verify করে
 - expiration validate করে
-এখন install করো:
-uv add pyjwt
+  এখন install করো:
+  uv add pyjwt
 
 তারপর verify:
-uv run python -c "import jwt; print(jwt.__version__)"
+uv run python -c "import jwt; print(jwt.**version**)"
 
 JWT secret কেন দরকার?
 Token এমন হবে:
 payload
-   +
-JWT_SECRET
-   ↓
-signed token
+
+- JWT_SECRET
+  ↓
+  signed token
 
 Secret ছাড়া কেউ valid token generate করতে পারবে না।
 Secret code-এর মধ্যে hardcode করবো না। .env-এ থাকবে।
@@ -258,10 +258,8 @@ ACCESS_TOKEN_EXPIRE_MINUTES=30
 এখন app/core/config.py-এর Settings class-এ add করো:
 jwt_secret: strjwt_algorithm: str = "HS256"access_token_expire_minutes: int = 30
 
-
 তাহলে relevant অংশ হবে:
-class Settings(BaseSettings):    app_name: str = "FastAPI Auth Service"    app_env: str = "development"    debug: bool = False    database_url: str    jwt_secret: str    jwt_algorithm: str = "HS256"    access_token_expire_minutes: int = 30
-
+class Settings(BaseSettings): app_name: str = "FastAPI Auth Service" app_env: str = "development" debug: bool = False database_url: str jwt_secret: str jwt_algorithm: str = "HS256" access_token_expire_minutes: int = 30
 
 তারপর verify:
 uv run python -c "from app.core.config import settings; print(settings.jwt_algorithm, settings.access_token_expire_minutes)"
@@ -269,41 +267,37 @@ uv run python -c "from app.core.config import settings; print(settings.jwt_algor
 Expected:
 HS256 30
 
-
-
-***create_access_token()*** login successful হলে token বানাবে।
+**_create_access_token()_** login successful হলে token বানাবে।
 Token payload roughly:
 {
-  "sub": "user-uuid",
-  "role": "USER",
-  "type": "access",
-  "exp": 1234567890
+"sub": "user-uuid",
+"role": "USER",
+"type": "access",
+"exp": 1234567890
 }
 
 এখানে:
+
 - sub → কোন user-এর token
 - role → RBAC-এর জন্য role
 - type → এটা access token নাকি অন্য token
 - exp → token কখন expire হবে
-decode_access_token() token valid কিনা check করবে এবং payload ফেরত দেবে।
+  decode_access_token() token valid কিনা check করবে এবং payload ফেরত দেবে।
 
-
-
-
-***Protected Route***
+**_Protected Route_**
 নতুন concept: get_current_user()।
 এর কাজ হবে request-এর header থেকে token নেওয়া:
 Authorization: Bearer <token>
 
 তারপর:
 Bearer Token
-   ↓
+↓
 Decode JWT
-   ↓
+↓
 Get user_id from sub
-   ↓
+↓
 Find user in DB
-   ↓
+↓
 Return authenticated User
 
 তারপর /auth/me endpoint বানাবো:
@@ -311,20 +305,18 @@ GET /api/v1/auth/me
 
 যেটা valid token দিলে current logged-in user return করবে।
 
-
-
-***get_current_user()*** কী?
+**_get_current_user()_** কী?
 এটা FastAPI dependency। Protected endpoint-এ request এলে এটি:
 Authorization: Bearer <JWT>
-          ↓
+↓
 Token extract
-          ↓
+↓
 JWT verify/decode
-          ↓
+↓
 sub থেকে user UUID
-          ↓
+↓
 UserRepository.get_by_id()
-          ↓
+↓
 Current User
 
 এটা দরকার কারণ প্রত্যেক protected API-তে manually JWT decode করা উচিত না। একবার reusable dependency বানালে পরে:
@@ -340,31 +332,26 @@ Authorization: Bearer <token>
 header parse করে token বের করে দেয়।
 আমাদের login JSON body নেয়, তাই এই stage-এ HTTPBearer clean/simple choice। এটা Swagger-এ Authorize option-ও তৈরি করবে।
 
-
-
-
-***/auth/me*** কী?
+**_/auth/me_** কী?
 এটা logged-in user-এর নিজের information return করবে। এটিই প্রথম protected endpoint হবে।
 Flow:
 GET /api/v1/auth/me
-        ↓
+↓
 Authorization: Bearer <token>
-        ↓
+↓
 get_current_user()
-        ↓
+↓
 JWT validate
-        ↓
+↓
 DB থেকে user load
-        ↓
+↓
 UserResponse
 
 এখন app/api/v1/auth.py-এ এই endpoint add করো:
 from app.dependencies.auth import get_current_userfrom app.db.models.user import User
 
-
 তারপর নিচে add করো:
-@router.get(    "/me",    response_model=UserResponse,    responses={        401: {            "description": "Invalid or expired token",        }    },)async def get_me(    current_user: User = Depends(get_current_user),) -> UserResponse:    return current_user
-
+@router.get( "/me", response_model=UserResponse, responses={ 401: { "description": "Invalid or expired token", } },)async def get_me( current_user: User = Depends(get_current_user),) -> UserResponse: return current_user
 
 এখন server run থাকলে Swagger refresh করো:
 http://127.0.0.1:8000/docs
@@ -381,19 +368,16 @@ eyJ...
 তারপর আবার /auth/me execute করো।
 Expected response roughly:
 
-  "id": "...",
-  "email": "user@example.com",
-  "full_name": "Test User",
-  "role": "USER",
-  "is_active": true,
-  "is_verified": false,
-  "created_at": "...",
-  "updated_at": "..."
+"id": "...",
+"email": "user@example.com",
+"full_name": "Test User",
+"role": "USER",
+"is_active": true,
+"is_verified": false,
+"created_at": "...",
+"updated_at": "..."
 
-
-
-
-  ****RBAC**** কী?
+\***\*RBAC\*\*** কী?
 RBAC = Role-Based Access Control
 মানে user authenticated হলেই সব route access করতে পারবে না। Role অনুযায়ী permission decide হবে।
 আমাদের তিনটা role:
@@ -403,13 +387,13 @@ USER
 
 Flow:
 JWT
- ↓
+↓
 get_current_user()
- ↓
+↓
 Current User
- ↓
+↓
 require_roles(...)
- ↓
+↓
 Allowed / 403 Forbidden
 
 require_roles() কী?
@@ -417,26 +401,81 @@ require_roles() কী?
 উদাহরণ:
 Depends(require_roles(UserRole.ADMIN))
 
-
 মানে শুধু ADMIN ঢুকতে পারবে।
 আর:
-Depends(    require_roles(        UserRole.ADMIN,        UserRole.MANAGER,    ))
-
+Depends( require_roles( UserRole.ADMIN, UserRole.MANAGER, ))
 
 মানে ADMIN এবং MANAGER দুজনই ঢুকতে পারবে।
 
-
-
-
-
-Step 1 — ***UserService*** কী?
+Step 1 — **_UserService_** কী?
 UserService user-related business logic রাখবে। Router সরাসরি repository call করবে না।
 app/services/user_service.py:
-from sqlalchemy.ext.asyncio import AsyncSessionfrom app.db.models.user import Userfrom app.repositories.user_repository import UserRepositoryclass UserService:    def __init__(self, session: AsyncSession):        self.user_repository = UserRepository(session)    async def list_users(self) -> list[User]:        return await self.user_repository.list_users()
-
+from sqlalchemy.ext.asyncio import AsyncSessionfrom app.db.models.user import Userfrom app.repositories.user_repository import UserRepositoryclass UserService: def **init**(self, session: AsyncSession): self.user_repository = UserRepository(session) async def list_users(self) -> list[User]: return await self.user_repository.list_users()
 
 তারপর verify:
 uv run python -c "from app.services.user_service import UserService; print('UserService OK')"
 
 Expected:
 UserService OK
+
+প্রথমে **_refresh-token_** storage foundation বানাবো; login response এখনই change করছি না।
+Refresh Token কী?
+Access token short-lived:
+Access Token
+≈ 30 minutes
+→ Protected API access
+
+Access token expire হলে user-কে বারবার password দিয়ে login করানো ঠিক না। তখন refresh token ব্যবহার করে নতুন access token নেওয়া হবে:
+Login
+↓
+Access Token + Refresh Token
+↓
+Access expires
+↓
+POST /auth/refresh
+↓
+New Access Token
+
+Refresh token DB-তে কেন রাখছি?
+শুধু token issue করলে logout করার পরও token expiry পর্যন্ত usable থাকতে পারে।
+আমরা DB session record রাখবো:
+Refresh Token
+↓
+Hash
+↓
+refresh_tokens table
+
+তখন আমরা করতে পারবো:
+Logout → token revoke
+Stolen token → revoke
+Expired token → reject
+Later → logout all devices
+
+আর raw refresh token database-এ রাখবো না। Password-এর মতো token-এর hash রাখবো।
+
+Access token আর refresh token দুটোই JWT হতে পারে, কিন্তু purpose আলাদা:
+Access Token
+→ API access
+→ short lifetime
+
+Refresh Token
+→ নতুন access token পাওয়ার জন্য
+→ longer lifetime
+→ DB-তে track/revoke করা হবে
+
+Refresh token-এর raw value DB-তে রাখবো না। Python-এর built-in hashlib দিয়ে SHA-256 hash রাখবো:
+Refresh Token
+↓
+SHA-256
+↓
+64-character hash
+↓
+Database
+
+এজন্য নতুন package লাগবে না।
+
+
+কেন get_by_hash()?
+Client raw refresh token পাঠাবে, আমরা সেটা SHA-256 hash করবো, তারপর DB-তে stored hash-এর সাথে match করবো।
+কেন revoke()?
+Logout করলে token delete না করে revoked_at set করবো। এতে audit/session history রাখা যায়।

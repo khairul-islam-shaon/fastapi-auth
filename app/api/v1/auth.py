@@ -61,7 +61,7 @@ async def login(
     service = AuthService(session)
 
     try:
-        access_token = await service.login(data)
+        access_token, refresh_token = await service.login(data)
     except InvalidCredentialsError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -69,8 +69,9 @@ async def login(
         )
 
     return TokenResponse(
-        access_token=access_token,
-    )
+    access_token=access_token,
+    refresh_token=refresh_token,
+)
 
 
 

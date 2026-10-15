@@ -18,6 +18,14 @@ async def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     session: AsyncSession = Depends(get_db),
 ) -> User:
+    """Resolve the bearer token to an active user.
+
+    Security decision (SEC-02): a token whose user is deleted or deactivated is
+    answered with 401 "Invalid or expired token", identical to a bad/expired
+    token. 401 (not 403) is intentional: the credential itself is no longer
+    valid, and a distinct status or message would reveal account state.
+    Role checks (403) only run after this succeeds.
+    """
     if credentials is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -46,10 +54,11 @@ async def get_current_user(
 
     user = await repository.get_by_id(user_uuid)
 
-    if user is None:
+    # Deleted and deactivated users get the same response as a bad token.
+    if user is None or not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found",
+            detail="Invalid or expired token",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
